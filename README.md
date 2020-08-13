@@ -1,5 +1,5 @@
-# interfaz-link
-Interfaz Link Python app
+# pyInterfaz
+Interfaz Python class
 
 #DEV
 
