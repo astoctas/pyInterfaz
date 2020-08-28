@@ -1,5 +1,8 @@
 .idea/
+build/
 dist/
 pyInterfaz.egg-info/
 venv/
 __pycache__
+user.py
+*.pyc

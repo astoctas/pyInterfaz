@@ -13,7 +13,6 @@ Interfaz Python class
     source venv/bin/activate
     
 - PyMata4
-
     
     pip install pyMata4
     

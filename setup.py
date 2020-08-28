@@ -5,10 +5,10 @@ with open("README.md", "r") as fh:
 
 setuptools.setup(
     name="pyInterfaz", # Replace with your own username
-    version="0.0.1",
+    version="0.1.0",
     author="Alejandro Lavagnino",
     author_email="alejandro.lavagnino@gmail.com",
-    description="Clases para controlar la interfaz + socket",
+    description="Clases para controlar la interfaz",
     long_description=long_description,
     long_description_content_type="text/markdown",
     url="https://github.com/astoctas/pyInterfaz",
