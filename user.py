@@ -1,11 +1,17 @@
-from pyInterfaz.pyInterfaz import rasti
+from pyInterfaz.pyInterfaz import i32
 import time
 
 def adata(d):
     print(d)
     #print(a.values.get(0))
 
-i = rasti("/dev/ttyUSB1")
+i = i32("/dev/ttyUSB1")
+i.input(4).on(adata);
+#i.analog[3].enable_reporting();
+#i.sp.write([0xc3,0x01]);
+
+i.loop();
+
 
 i.output(1).speed(100)
 i.output(1).on()

@@ -1,4 +1,4 @@
-from pyfirmata import Arduino, util, boards
+from pyfirmata import Board, util, boards
 import time
 import asyncio
 # from inspect import signature
@@ -27,13 +27,23 @@ SAMPLING_INTERVAL = 0x7A  # set the poll rate of the main loop
 I2C_REQUEST = 0x76          # send an I2C read/write request
 I2C_REPLY = 0x77            # a reply to an I2C read request
 I2C_CONFIG = 0x78           # config I2C settings such as delay times and power pins
+SET_DIGITAL_PIN = 0xF5         # set a pin value
+
+HIGH = 0x01
+LOW = 0x00
 
 
-class __pyInterfaz(Arduino):
+class __pyInterfaz(Board):
 
-    def __init__(self, com_port=None):
-        super().__init__(com_port)
+    def __init__(self, com_port, baudrate=57600, layout=None):
+        super().__init__(com_port,  baudrate=baudrate, layout=layout)
         print("Interfaz conectada a "+com_port)
+        # Necesitamos escribir directo sobre el puerto e indicamos conexión
+        if self.led_builtin:
+            self.sp.write([SET_DIGITAL_PIN,self.led_builtin,HIGH]);
+            time.sleep(0.1)
+            self.sp.write([SET_DIGITAL_PIN,self.led_builtin,LOW]);
+        # Iniciamos loop para recibir datos
         it = util.Iterator(self)
         it.start()
         self.add_cmd_handler(I2C_REPLY, self._handle_i2c_message)
@@ -57,7 +67,9 @@ class __pyInterfaz(Arduino):
         try:
             if self.analog[pin_nr].reporting:
                 ## CALL CALLBACK
-                self._analogs[pin_nr]._changecb(value)
+                for a in self._analogs:
+                    if a.index == pin_nr:
+                        a._changecb(value)
                 self.analog[pin_nr].value = value
         except IndexError:
             raise ValueError
@@ -302,9 +314,28 @@ class __pyInterfaz(Arduino):
             return self._interfaz.digital_read(self.index)[0]
 """
 
+class i32(__pyInterfaz):
+    def __init__(self, com_port, baudrate=115200):
+        self.boardlayout = {
+            'digital' : tuple(x for x in range(40)),
+            'analog' : tuple(x for x in range(20)),
+            'pwm' : tuple(x for x in range(40)),
+            'use_ports' : True,
+            'disabled' : (0, 1) # Rx, Tx
+        }    
+        self.led_builtin = 2;
+        super().__init__(com_port, baudrate=baudrate, layout=self.boardlayout)
+        self._lcd = self._LCD(self)
+        self._outputs = [self._Output(self, 0), self._Output(self, 1), self._Output(self, 2), self._Output(self, 3)]
+        self._servos = [self._Servo(self, 1), self._Servo(self, 2)]
+        self._analogs = [self._Analog(self, 0), self._Analog(self, 3), self._Analog(self, 6), self._Analog(self,7)]
+        self._i2c = dict()
+        self._joystick = self._Joystick(self)
+
 
 class interfaz(__pyInterfaz):
-    def __init__(self, com_port=None):
+    def __init__(self, com_port):
+        self.led_builtin = 13;
         super().__init__(com_port)
         self._lcd = self._LCD(self)
         self._outputs = [self._Output(self, 0), self._Output(self, 1), self._Output(self, 2), self._Output(self, 3)]
@@ -314,7 +345,8 @@ class interfaz(__pyInterfaz):
         self._joystick = self._Joystick(self)
 
 class rasti(__pyInterfaz):
-    def __init__(self, com_port=None):
+    def __init__(self, com_port):
+        self.led_builtin = 13;
         super().__init__(com_port)
         self._lcd = None
         self._outputs = [self._Output(self, 0), self._Output(self, 1)]
