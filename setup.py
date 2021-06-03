@@ -5,21 +5,21 @@ with open("README.md", "r") as fh:
 
 setuptools.setup(
     name="pyInterfaz", # Replace with your own username
-    version="0.2.0",
-    author="Alejandro Lavagnino",
+    version="0.3.2",
+    author="Robotica.ar",
     author_email="alejandro.lavagnino@gmail.com",
-    description="Clases para controlar la interfaz",
+    description="Clases para controlar la interfaz robótica",
     long_description=long_description,
     long_description_content_type="text/markdown",
     url="https://github.com/astoctas/pyInterfaz",
     packages=setuptools.find_packages(),
     classifiers=[
-        "Programming Language :: Python :: 3.6",
+        "Programming Language :: Python :: 3.8",
         "License :: OSI Approved :: MIT License",
         "Operating System :: OS Independent",
     ],
-  install_requires=[            # I get to this in a second
-          'pyMata4'
+  install_requires=[           
+          'pyFirmata'
       ],    
     python_requires='>=3.6',
 )

@@ -12,9 +12,7 @@ Interfaz Python class
     virtualenv --python=python3.6 venv  
     source venv/bin/activate
     
-- PyMata4
-    
-    pip install pyMata4
+
     
    
    
