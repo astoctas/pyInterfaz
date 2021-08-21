@@ -44,6 +44,9 @@ PIXEL_SHIFT =       0x05
 SHIFT_FORWARD =     0x20
 SHIFT_BACKWARD =    0x00
 
+PING_READ =         0x75
+
+
 class __pyInterfaz(Board):
 
     def __init__(self, com_port, baudrate=115200, layout=None):
@@ -64,7 +67,9 @@ class __pyInterfaz(Board):
         it = util.Iterator(self)
         it.start()
         self.add_cmd_handler(I2C_REPLY, self._handle_i2c_message)
+        self.add_cmd_handler(PING_READ, self._handle_ping_read)
         self.send_sysex(I2C_CONFIG, []);  # I2C_CONFIG
+        self.lastMsg = ''
 
     def load_board(self):
         if self.firmware is not None:
@@ -110,6 +115,23 @@ class __pyInterfaz(Board):
                         if a.index == pin_nr:
                             a._changecb(value)
                 self.analog[pin_nr].value = value
+        except IndexError:
+            raise ValueError
+
+    def _handle_ping_read(self, pin_nr, *data):
+        duration = (util.from_two_bytes(data[1:3]) << 24) \
+                    + (util.from_two_bytes(data[3:5]) << 16) \
+                    + (util.from_two_bytes(data[5:7]) << 8) \
+                    + util.from_two_bytes(data[7:9])
+        ping_distance = duration / 58.2
+        # We can calculate the distance using an HC-SR04 as 'duration / 58.2'
+        try:
+            ## CALL CALLBACK
+            if self.digital[pin_nr].ping_distance != ping_distance:
+                for a in self._pings:
+                    if a.index == pin_nr:
+                        a._changecb(ping_distance)
+            self.digital[pin_nr].ping_distance = ping_distance
         except IndexError:
             raise ValueError
 
@@ -258,12 +280,16 @@ class __pyInterfaz(Board):
             return buf
 
         def push(self, str):
+            if self._silenciado:
+                return  self;
             data = [CMD_LCD_PUSH]
             data += self._strtosysex(str)
             self._interfaz.send_sysex(CMD_LCD_DATA, data)
             return self
 
         def print(self, row, str):
+            if self._silenciado:
+                return  self;
             data = [CMD_LCD_PRINT, row]
             data += self._strtosysex(str)
             self._interfaz.send_sysex(CMD_LCD_DATA, data)
@@ -275,6 +301,7 @@ class __pyInterfaz(Board):
 
         def silence(self):
             self._silenciado = True
+            return self
 
         def on(self):
             self._silenciado = False
@@ -323,7 +350,7 @@ class __pyInterfaz(Board):
             self._interfaz.print("salida " + str(self.index + 1), "direccion " + str(d))
             return self
 
-        def speed(self, speed):
+        def power(self, speed):
             if speed > 100: speed = 100
             if speed < 0: speed = 0
             self._interfaz.send_sysex(CMD_MOTOR_DATA, [CMD_MOTOR_SPEED, self.index, speed & FIRMATA_7BIT_MASK, speed >> 7 & FIRMATA_7BIT_MASK])
@@ -435,6 +462,74 @@ class __pyInterfaz(Board):
             self.processCallback(callback)
             return self
 
+    class _PING(__Sensor):
+        def __init__(self, interfaz, index):
+            self._interfaz = interfaz
+            self.index = index + 14
+            self._interfaz.digital[self.index].ping_distance = -1;
+            super().__init__()
+
+        def ping(self):
+            self.exec_ping();
+
+        def exec_ping(self, trigger_mode=1, trigger_duration=10, echo_timeout=65000):
+            """
+            Trigger the pin and wait for a pulseIn echo.
+            Used with HC-SR04 ultrasonic ranging sensors
+            :arg trigger_mode: Uses value as a boolean,
+                            0 to trigger LOW,
+                            1 to trigger HIGH (default, for HC-SR04 modules).
+            :arg trigger_duration: Duration (us) for the trigger signal.
+            :arg echo_timeout: Time (us) to wait for the echo (pulseIn timeout).
+            """
+            if trigger_mode not in (0, 1):
+                raise IOError("trigger_mode should be 0 or 1")
+
+            # This is the protocol to ask for a pulseIn:
+            #       START_SYSEX(0xF0)           // send_sysex(...)
+            #       puseIn/pulseOut(0x74)       // send_sysex(PULSE_IN, ...)
+            #       pin(0-127)
+            #       value(1 or 0, HIGH or LOW)
+            #       pulseOutDuration 0 (LSB)
+            #       pulseOutDuration 0 (MSB)
+            #       pulseOutDuration 1 (LSB)
+            #       pulseOutDuration 1 (MSB)
+            #       pulseOutDuration 2 (LSB)
+            #       pulseOutDuration 2 (MSB)
+            #       pulseOutDuration 3 (LSB)
+            #       pulseOutDuration 3 (MSB)
+            #       pulseInTimeout 0 (LSB)
+            #       pulseInTimeout 0 (MSB)
+            #       pulseInTimeout 1 (LSB)
+            #       pulseInTimeout 1 (MSB)
+            #       pulseInTimeout 2 (LSB)
+            #       pulseInTimeout 2 (MSB)
+            #       pulseInTimeout 3 (LSB)
+            #       pulseInTimeout 3 (MSB)
+            #       END_SYSEX(0xF7)             // send_sysex(...)
+
+            data = bytearray()
+            data.append(self.pin_number)  # Pin number
+            data.append(trigger_mode)  # Trigger mode (1 or 0, HIGH or LOW)
+            trigger_duration_arr = util.to_two_bytes((trigger_duration >> 24) & 0xFF) \
+                                   + util.to_two_bytes((trigger_duration >> 16) & 0xFF) \
+                                   + util.to_two_bytes((trigger_duration >> 8) & 0xFF) \
+                                   + util.to_two_bytes(trigger_duration & 0xFF)
+            data.extend(trigger_duration_arr)  # pulseOutDuration
+            echo_timeout_arr = util.to_two_bytes((echo_timeout >> 24) & 0xFF) \
+                               + util.to_two_bytes((echo_timeout >> 16) & 0xFF) \
+                               + util.to_two_bytes((echo_timeout >> 8) & 0xFF) \
+                               + util.to_two_bytes(echo_timeout & 0xFF)
+            data.extend(echo_timeout_arr)  # pulseInTimeout
+            self._interfaz.send_sysex(PING_READ, data)
+
+
+        def on(self, callback=None):
+            self.processCallback(callback)
+            self.ping()
+            self._interfaz.print("ultrasonido " + str(self.index - 14), "reportando")
+
+
     class _Analog(__Sensor):
         def __init__(self, interfaz, index):
             self._interfaz = interfaz
@@ -521,12 +616,12 @@ class __pyInterfaz(Board):
             colors = self.hex_to_rgb(hex)
             return (colors[0] << 16) + (colors[1] << 8) + (colors[2])
 
-        def config(self, length):
+        def create(self, length):
             self.length = length
             self._interfaz.digital[self.pin]._set_mode(pyfirmata.OUTPUT);
             buf = [PIXEL_CONFIG, self.pin, self.length & FIRMATA_7BIT_MASK, self.length >> 7 & FIRMATA_7BIT_MASK]
             self._interfaz.send_sysex(PIXEL_COMMAND, buf)
-            self._interfaz.print("pixel " + str(self.index), "configrado")
+            self._interfaz.print("pixel " + str(self.index), "configurado")
             return self
 
         def show(self):
@@ -558,7 +653,7 @@ class __pyInterfaz(Board):
         def on(self, pos=0):
             color = "#FFFFFF"
             if pos > 0:
-                self.pixel_color(color, pos)
+                self.color(color, pos)
             else:
                 self.strip_color(color)
             self._interfaz.print("pixel " + str(self.index), "encendido")
@@ -585,6 +680,7 @@ class interfaz(__pyInterfaz):
         self._pixels = [self._Pixel(self, 1), self._Pixel(self, 2)]
         self._analogs = [self._Analog(self, 0), self._Analog(self, 1), self._Analog(self, 2), self._Analog(self, 3)]
         self._digitals = [self._Digital(self, 0), self._Digital(self, 1), self._Digital(self, 2), self._Digital(self, 3)]
+        self._pings = [self._PING(self, 0), self._PING(self, 1), self._PING(self, 2), self._PING(self, 3)]
         self._i2c = dict()
         self._joystick = self._Joystick(self)
 
@@ -595,6 +691,7 @@ class interfaz(__pyInterfaz):
         self._outputs = [self._Output(self, 0), self._Output(self, 1)]
         self._servos = [self._Servo(self, 1), self._Servo(self, 2)]
         self._analogs = [self._Analog(self, 0), self._Analog(self, 1), self._Analog(self, 2), self._Analog(self, 3)]
+        self._pings = [self._PING(self, 0), self._PING(self, 1), self._PING(self, 2), self._PING(self, 3)]
         self._i2c = dict()
         self._joystick = self._Joystick(self)
         self._pins = [self._Pin(self, 1), self._Pin(self, 2)]

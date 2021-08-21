@@ -55,12 +55,16 @@ class SocketIOServer():
             self.exec("servo", b)
 
         @sio.on('PIXEL')
-        def servo_message(b):
+        def pixel_message(b):
             self.exec("pixel", b)
 
         @sio.on('PIN')
         def servo_message(b):
             self.exec("pin", b)
+
+        @sio.on('PING')
+        def ping_message(b):
+            self.exec("ping", b, lambda d: self.emit_report("PING_MESSAGE", b['index'], d))
 
         @sio.on('I2CJOYSTICK')
         def i2cjoystick_message(b):
@@ -88,7 +92,10 @@ class SocketIOServer():
         o = getattr(self.window.i, obj)
         if 'address' in data:
             data['index'] = data['address']
-        f = getattr(o(data['index']), data['method'])
+        if 'index' in data:
+            f = getattr(o(data['index']), data['method'])
+        else:
+            f = getattr(o(), data['method'])
         sig = signature(f)
         params = list(sig.parameters.values())
         result = None
