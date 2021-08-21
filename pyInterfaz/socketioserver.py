@@ -54,6 +54,10 @@ class SocketIOServer():
         def servo_message(b):
             self.exec("servo", b)
 
+        @sio.on('LCD')
+        def lcd_message(b):
+            self.exec("lcd", b)
+
         @sio.on('PIXEL')
         def pixel_message(b):
             self.exec("pixel", b)

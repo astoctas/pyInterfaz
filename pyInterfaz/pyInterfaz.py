@@ -215,28 +215,32 @@ class __pyInterfaz(Board):
         return board_dict
 
     def output(self, index):
-        if index < 1: index = 1
-        return self._outputs[index - 1]
+        if index < 0: index = 0
+        return self._outputs[index]
 
     def input(self, index):
-        if index < 1: index = 1
-        return self._analogs[index - 1]
+        if index < 0: index = 0
+        return self._analogs[index]
 
     def digital_input(self, index):
-        if index < 1: index = 1
-        return self._digitals[index - 1]
+        if index < 0: index = 0
+        return self._digitals[index]
 
     def servo(self, index):
-        if index < 1: index = 1
-        return self._servos[index - 1]
+        if index < 0: index = 0
+        return self._servos[index]
 
     def pin(self, index):
-        if index < 1: index = 1
-        return self._pins[index - 1]
+        if index < 0: index = 0
+        return self._pins[index]
+
+    def ping(self, index):
+        if index < 0: index = 0
+        return self._pings[index]
 
     def pixel(self, index):
-        if index < 1: index = 1
-        return self._pixels[index - 1]
+        if index < 0: index = 0
+        return self._pixels[index]
 
     def i2c(self, address):
         if not address in self._i2c: self._i2c[address] = self._I2C(self, address);
@@ -300,11 +304,13 @@ class __pyInterfaz(Board):
             return self
 
         def silence(self):
+            self._interfaz.print("LCD", "silenciado")
             self._silenciado = True
             return self
 
         def on(self):
             self._silenciado = False
+            self._interfaz.print("LCD", "encendido")
             return self
 
     class _Servo:
@@ -509,7 +515,7 @@ class __pyInterfaz(Board):
             #       END_SYSEX(0xF7)             // send_sysex(...)
 
             data = bytearray()
-            data.append(self.pin_number)  # Pin number
+            data.append(self.index)  # Pin number
             data.append(trigger_mode)  # Trigger mode (1 or 0, HIGH or LOW)
             trigger_duration_arr = util.to_two_bytes((trigger_duration >> 24) & 0xFF) \
                                    + util.to_two_bytes((trigger_duration >> 16) & 0xFF) \
@@ -527,7 +533,7 @@ class __pyInterfaz(Board):
         def on(self, callback=None):
             self.processCallback(callback)
             self.ping()
-            self._interfaz.print("ultrasonido " + str(self.index - 14), "reportando")
+            self._interfaz.print("ultrasonido " + str(self.index - 13), "reportando")
 
 
     class _Analog(__Sensor):
