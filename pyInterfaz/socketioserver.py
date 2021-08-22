@@ -32,6 +32,11 @@ class SocketIOServer():
         def socket_io():
             return render_template('socket.io.min.js')
 
+        @sio.on('SYSTEM_RESET')
+        def reset_message():
+            if hasattr(self.window, "i"):
+                self.window.i.reset()
+
         @sio.on('OUTPUT')
         def output_message(b):
             self.exec("output", b)

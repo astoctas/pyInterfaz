@@ -45,6 +45,7 @@ SHIFT_FORWARD =     0x20
 SHIFT_BACKWARD =    0x00
 
 PING_READ =         0x75
+SYSTEM_RESET =      0xFF
 
 
 class __pyInterfaz(Board):
@@ -89,8 +90,12 @@ class __pyInterfaz(Board):
         else:
             raise ValueError("No se pudo identificar el modelo")
 
+    def send_command(self, cmd):
+        msg = bytearray([cmd])
+        self.sp.write(msg)
 
-
+    def reset(self):
+        self.send_command(SYSTEM_RESET)
 
     def _handle_i2c_message(self, *args, **kwargs):
         address = util.from_two_bytes([args[0], args[1]])
