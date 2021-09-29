@@ -700,10 +700,12 @@ class interfaz(__pyInterfaz):
         self.modelo = "Rasti";
         self._lcd = None
         self._outputs = [self._Output(self, 0), self._Output(self, 1)]
-        self._servos = [self._Servo(self, 1), self._Servo(self, 2)]
+        self._servos = [self._Servo(self, 1), self._Servo(self, 2),self._Servo(self, 3), self._Servo(self, 4)]
         self._analogs = [self._Analog(self, 0), self._Analog(self, 1), self._Analog(self, 2), self._Analog(self, 3)]
+        self._digitals = [self._Digital(self, 0), self._Digital(self, 1), self._Digital(self, 2), self._Digital(self, 3)]
         self._pings = [self._PING(self, 0), self._PING(self, 1), self._PING(self, 2), self._PING(self, 3)]
         self._i2c = dict()
+        self._lcd = None
         self._joystick = self._Joystick(self)
         self._pins = [self._Pin(self, 1), self._Pin(self, 2)]
         self._pixels = [self._Pixel(self, 1), self._Pixel(self, 2)]
